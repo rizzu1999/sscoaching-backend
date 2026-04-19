@@ -1,24 +1,17 @@
 const Course = require('../models/Course');
-const Enrollment = require('../models/Enrollment');
 
 // GET /api/courses
 exports.getCourses = async (req, res, next) => {
   try {
-    const { subject, class: cls, isFree, search, page = 1, limit = 12, showAll } = req.query;
-    const filter = showAll === 'true' ? {} : { isPublished: true };
-
-    if (subject)        filter.subject = subject;
-    if (cls)            filter.class = cls;
+    const { subject, batch, isFree, search, page = 1, limit = 20, showAll } = req.query;
+    const filter = showAll === 'true' ? {} : { status: 'published' };
+    if (subject) filter.subject = subject;
+    if (batch)   filter.batch   = batch;
     if (isFree === 'true') filter.isFree = true;
-    if (search)         filter.title = { $regex: search, $options: 'i' };
+    if (search)  filter.title = { $regex: search, $options: 'i' };
 
-    const total = await Course.countDocuments(filter);
-    const courses = await Course.find(filter)
-      .populate('teacher', 'name photo qualification')
-      .sort({ createdAt: -1 })
-      .skip((page - 1) * limit)
-      .limit(Number(limit));
-
+    const total   = await Course.countDocuments(filter);
+    const courses = await Course.find(filter).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(Number(limit));
     res.json({ success: true, total, page: Number(page), courses });
   } catch (err) { next(err); }
 };
@@ -26,79 +19,135 @@ exports.getCourses = async (req, res, next) => {
 // GET /api/courses/:id
 exports.getCourse = async (req, res, next) => {
   try {
-    const course = await Course.findById(req.params.id).populate('teacher', 'name photo bio qualification experience');
+    const course = await Course.findById(req.params.id);
     if (!course) return res.status(404).json({ success: false, message: 'Course not found' });
     res.json({ success: true, course });
   } catch (err) { next(err); }
 };
 
-// POST /api/courses  (admin only)
+// POST /api/courses
 exports.createCourse = async (req, res, next) => {
   try {
-    const data = req.body;
-    if (req.file) data.thumbnail = `/uploads/${req.file.filename}`;
-    data.isFree = data.price === 0 || data.price === '0';
-
+    const data = { ...req.body };
+    if (req.file) data.featureImage = `/uploads/${req.file.filename}`;
+    data.isFree = Number(data.price) === 0;
     const course = await Course.create(data);
-    await course.populate('teacher', 'name photo');
     res.status(201).json({ success: true, course });
   } catch (err) { next(err); }
 };
 
-// PUT /api/courses/:id  (admin only)
+// PUT /api/courses/:id
 exports.updateCourse = async (req, res, next) => {
   try {
-    const data = req.body;
-    if (req.file) data.thumbnail = `/uploads/${req.file.filename}`;
+    const data = { ...req.body };
+    if (req.file) data.featureImage = `/uploads/${req.file.filename}`;
     if (data.price !== undefined) data.isFree = Number(data.price) === 0;
-
-    const course = await Course.findByIdAndUpdate(req.params.id, data, { new: true, runValidators: true })
-      .populate('teacher', 'name photo');
+    const course = await Course.findByIdAndUpdate(req.params.id, data, { new: true, runValidators: false });
     if (!course) return res.status(404).json({ success: false, message: 'Course not found' });
     res.json({ success: true, course });
   } catch (err) { next(err); }
 };
 
-// DELETE /api/courses/:id  (admin only)
+// DELETE /api/courses/:id
 exports.deleteCourse = async (req, res, next) => {
   try {
     const course = await Course.findByIdAndDelete(req.params.id);
     if (!course) return res.status(404).json({ success: false, message: 'Course not found' });
-    res.json({ success: true, message: 'Course deleted successfully' });
+    res.json({ success: true, message: 'Course deleted' });
   } catch (err) { next(err); }
 };
 
-// PATCH /api/courses/:id/publish  (admin only)
+// PATCH /api/courses/:id/publish
 exports.togglePublish = async (req, res, next) => {
   try {
     const course = await Course.findById(req.params.id);
     if (!course) return res.status(404).json({ success: false, message: 'Course not found' });
-    course.isPublished = !course.isPublished;
+    course.status = course.status === 'published' ? 'draft' : 'published';
     await course.save();
-    res.json({ success: true, isPublished: course.isPublished, course });
+    res.json({ success: true, status: course.status, course });
   } catch (err) { next(err); }
 };
 
-// POST /api/courses/:id/sections  (admin only) — add curriculum section
-exports.addSection = async (req, res, next) => {
+// PUT /api/courses/:id/curriculum — save full curriculum at once
+exports.saveCurriculum = async (req, res, next) => {
+  try {
+    const { chapters } = req.body;
+    const course = await Course.findByIdAndUpdate(
+      req.params.id,
+      { $set: { chapters } },
+      { new: true }
+    );
+    if (!course) return res.status(404).json({ success: false, message: 'Course not found' });
+    res.json({ success: true, course });
+  } catch (err) { next(err); }
+};
+
+// POST /api/courses/:id/chapters
+exports.addChapter = async (req, res, next) => {
   try {
     const course = await Course.findById(req.params.id);
     if (!course) return res.status(404).json({ success: false, message: 'Course not found' });
-    course.curriculum.push({ title: req.body.title, order: course.curriculum.length });
+    course.chapters.push({ title: req.body.title, order: course.chapters.length });
     await course.save();
     res.json({ success: true, course });
   } catch (err) { next(err); }
 };
 
-// POST /api/courses/:id/sections/:sectionId/lectures  (admin only)
-exports.addLecture = async (req, res, next) => {
+// PUT /api/courses/:id/chapters/:chapterId
+exports.updateChapter = async (req, res, next) => {
+  try {
+    const course = await Course.findById(req.params.id);
+    const chapter = course?.chapters.id(req.params.chapterId);
+    if (!chapter) return res.status(404).json({ success: false, message: 'Chapter not found' });
+    chapter.title = req.body.title ?? chapter.title;
+    await course.save();
+    res.json({ success: true, course });
+  } catch (err) { next(err); }
+};
+
+// DELETE /api/courses/:id/chapters/:chapterId
+exports.deleteChapter = async (req, res, next) => {
   try {
     const course = await Course.findById(req.params.id);
     if (!course) return res.status(404).json({ success: false, message: 'Course not found' });
-    const section = course.curriculum.id(req.params.sectionId);
-    if (!section) return res.status(404).json({ success: false, message: 'Section not found' });
-    section.lectures.push({ ...req.body, order: section.lectures.length });
-    course.totalLectures = course.curriculum.reduce((acc, s) => acc + s.lectures.length, 0);
+    course.chapters.pull({ _id: req.params.chapterId });
+    await course.save();
+    res.json({ success: true, course });
+  } catch (err) { next(err); }
+};
+
+// POST /api/courses/:id/chapters/:chapterId/lessons
+exports.addLesson = async (req, res, next) => {
+  try {
+    const course = await Course.findById(req.params.id);
+    const chapter = course?.chapters.id(req.params.chapterId);
+    if (!chapter) return res.status(404).json({ success: false, message: 'Chapter not found' });
+    chapter.lessons.push({ ...req.body, order: chapter.lessons.length });
+    await course.save();
+    res.json({ success: true, course });
+  } catch (err) { next(err); }
+};
+
+// PUT /api/courses/:id/chapters/:chapterId/lessons/:lessonId
+exports.updateLesson = async (req, res, next) => {
+  try {
+    const course  = await Course.findById(req.params.id);
+    const chapter = course?.chapters.id(req.params.chapterId);
+    const lesson  = chapter?.lessons.id(req.params.lessonId);
+    if (!lesson) return res.status(404).json({ success: false, message: 'Lesson not found' });
+    Object.assign(lesson, req.body);
+    await course.save();
+    res.json({ success: true, course });
+  } catch (err) { next(err); }
+};
+
+// DELETE /api/courses/:id/chapters/:chapterId/lessons/:lessonId
+exports.deleteLesson = async (req, res, next) => {
+  try {
+    const course  = await Course.findById(req.params.id);
+    const chapter = course?.chapters.id(req.params.chapterId);
+    if (!chapter) return res.status(404).json({ success: false, message: 'Chapter not found' });
+    chapter.lessons.pull({ _id: req.params.lessonId });
     await course.save();
     res.json({ success: true, course });
   } catch (err) { next(err); }

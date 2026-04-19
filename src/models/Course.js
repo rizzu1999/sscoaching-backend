@@ -1,38 +1,41 @@
 const mongoose = require('mongoose');
 
-const lectureSchema = new mongoose.Schema({
-  title:    { type: String, required: true },
-  videoUrl: { type: String, default: '' },
-  duration: { type: String, default: '0:00' },
-  isFree:   { type: Boolean, default: false },
-  order:    { type: Number, default: 0 },
-});
+const NoteSchema = new mongoose.Schema({
+  title:     { type: String, required: true },
+  driveLink: { type: String, default: '' },
+  type:      { type: String, enum: ['pdf', 'doc', 'ppt', 'link', 'other'], default: 'pdf' },
+}, { _id: true });
 
-const sectionSchema = new mongoose.Schema({
-  title:    { type: String, required: true },
-  order:    { type: Number, default: 0 },
-  lectures: [lectureSchema],
-});
+const LessonSchema = new mongoose.Schema({
+  title:       { type: String, required: true },
+  youtubeLink: { type: String, default: '' },
+  videoUrl:    { type: String, default: '' },
+  videoType:   { type: String, enum: ['youtube', 'upload', 'none'], default: 'youtube' },
+  duration:    { type: String, default: '' },
+  isFree:      { type: Boolean, default: false },
+  order:       { type: Number, default: 0 },
+  notes:       [NoteSchema],
+}, { _id: true });
+
+const ChapterSchema = new mongoose.Schema({
+  title:   { type: String, required: true },
+  order:   { type: Number, default: 0 },
+  lessons: [LessonSchema],
+}, { _id: true });
 
 const courseSchema = new mongoose.Schema({
   title:         { type: String, required: true, trim: true },
-  description:   { type: String, required: true },
-  subject:       { type: String, required: true, enum: ['Physics', 'Chemistry', 'Maths', 'Biology', 'English', 'Hindi', 'Social Science', 'Other'] },
-  class:         { type: String, required: true, enum: ['Class 9', 'Class 10', 'Class 11', 'Class 12', 'JEE', 'NEET', 'Other'] },
-  teacher:       { type: mongoose.Schema.Types.ObjectId, ref: 'Teacher', required: true },
+  description:   { type: String, default: '' },
+  subject:       { type: String, required: true },
+  batch:         { type: String, required: true },
   price:         { type: Number, default: 0 },
   originalPrice: { type: Number, default: 0 },
   isFree:        { type: Boolean, default: false },
-  isPublished:   { type: Boolean, default: false },
-  thumbnail:     { type: String, default: '' },
+  status:        { type: String, enum: ['draft', 'published'], default: 'draft' },
+  featureImage:  { type: String, default: '' },
   language:      { type: String, default: 'Hindi' },
-  tags:          [{ type: String }],
-  whatYouLearn:  [{ type: String }],
-  requirements:  [{ type: String }],
-  curriculum:    [sectionSchema],
-  totalLectures: { type: Number, default: 0 },
-  totalDuration: { type: String, default: '0h' },
-  totalStudents: { type: Number, default: 0 },
+  enrolledCount: { type: Number, default: 0 },
+  chapters:      [ChapterSchema],
   rating: {
     average: { type: Number, default: 0 },
     count:   { type: Number, default: 0 },
