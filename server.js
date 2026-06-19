@@ -11,7 +11,7 @@ const app = express();
 connectDB();
 
 // Middleware
-app.use(cors({ origin: '*', credentials: true }));
+app.use(cors({ origin: '*' }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan('dev'));
@@ -25,6 +25,7 @@ app.use('/api/courses',     require('./src/routes/courses'));
 app.use('/api/teachers',    require('./src/routes/teachers'));
 app.use('/api/live-classes',require('./src/routes/liveClasses'));
 app.use('/api/enrollments', require('./src/routes/enrollments'));
+app.use('/api/invoices',    require('./src/routes/invoices'));
 app.use('/api/admin',       require('./src/routes/admin'));
 
 // Health check

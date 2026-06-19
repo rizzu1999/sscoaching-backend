@@ -66,13 +66,24 @@ exports.getMe = async (req, res, next) => {
 // PUT /api/auth/update-profile
 exports.updateProfile = async (req, res, next) => {
   try {
-    const { name, phone, class: studentClass } = req.body;
-    const user = await User.findByIdAndUpdate(
-      req.user.id,
-      { name, phone, class: studentClass },
-      { new: true, runValidators: true }
-    );
+    const { name, phone, class: studentClass, avatar } = req.body;
+    const updateData = {};
+    if (name !== undefined) updateData.name = name;
+    if (phone !== undefined) updateData.phone = phone;
+    if (studentClass !== undefined) updateData.class = studentClass;
+    if (avatar !== undefined) updateData.avatar = avatar;
+    const user = await User.findByIdAndUpdate(req.user.id, updateData, { new: true, runValidators: false });
     res.json({ success: true, user });
+  } catch (err) { next(err); }
+};
+
+// POST /api/auth/avatar
+exports.uploadAvatar = async (req, res, next) => {
+  try {
+    if (!req.file) return res.status(400).json({ success: false, message: 'No file uploaded' });
+    const avatarUrl = `/uploads/${req.file.filename}`;
+    const user = await User.findByIdAndUpdate(req.user.id, { avatar: avatarUrl }, { new: true });
+    res.json({ success: true, avatar: avatarUrl, user });
   } catch (err) { next(err); }
 };
 

@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { body } = require('express-validator');
 const { protect } = require('../middleware/auth');
+const upload = require('../middleware/upload');
 const ctrl = require('../controllers/authController');
 
 router.post('/register',
@@ -16,5 +17,6 @@ router.post('/admin-login', ctrl.adminLogin);
 router.get('/me', protect, ctrl.getMe);
 router.put('/update-profile', protect, ctrl.updateProfile);
 router.put('/change-password', protect, ctrl.changePassword);
+router.post('/avatar', protect, upload.single('avatar'), ctrl.uploadAvatar);
 
 module.exports = router;

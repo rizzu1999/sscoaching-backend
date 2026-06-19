@@ -25,11 +25,18 @@ exports.getCourse = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
+const getUploadedImage = (req) => {
+  if (req.file) return `/uploads/${req.file.filename}`;
+  if (req.files?.length) return `/uploads/${req.files[0].filename}`;
+  return null;
+};
+
 // POST /api/courses
 exports.createCourse = async (req, res, next) => {
   try {
     const data = { ...req.body };
-    if (req.file) data.featureImage = `/uploads/${req.file.filename}`;
+    const img = getUploadedImage(req);
+    if (img) data.featureImage = img;
     data.isFree = Number(data.price) === 0;
     const course = await Course.create(data);
     res.status(201).json({ success: true, course });
@@ -40,7 +47,8 @@ exports.createCourse = async (req, res, next) => {
 exports.updateCourse = async (req, res, next) => {
   try {
     const data = { ...req.body };
-    if (req.file) data.featureImage = `/uploads/${req.file.filename}`;
+    const img = getUploadedImage(req);
+    if (img) data.featureImage = img;
     if (data.price !== undefined) data.isFree = Number(data.price) === 0;
     const course = await Course.findByIdAndUpdate(req.params.id, data, { new: true, runValidators: false });
     if (!course) return res.status(404).json({ success: false, message: 'Course not found' });

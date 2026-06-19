@@ -7,8 +7,8 @@ const ctrl   = require('../controllers/courseController');
 router.get('/',    ctrl.getCourses);
 router.get('/:id', ctrl.getCourse);
 
-router.post('/',   protect, adminOnly, upload.single('featureImage'), ctrl.createCourse);
-router.put('/:id', protect, adminOnly, upload.single('featureImage'), ctrl.updateCourse);
+router.post('/',   protect, adminOnly, upload.any(), ctrl.createCourse);
+router.put('/:id', protect, adminOnly, upload.any(), ctrl.updateCourse);
 router.delete('/:id', protect, adminOnly, ctrl.deleteCourse);
 router.patch('/:id/publish', protect, adminOnly, ctrl.togglePublish);
 
