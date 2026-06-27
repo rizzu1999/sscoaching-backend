@@ -72,8 +72,9 @@ exports.enroll = async (req, res, next) => {
 exports.getMyEnrollments = async (req, res, next) => {
   try {
     const enrollments = await Enrollment.find({ student: req.user.id })
-      .populate('course', 'title subject batch featureImage language enrolledCount chapters')
-      .sort({ createdAt: -1 });
+      .populate('course', 'title subject batch featureImage isFree status courseType bundledSubjects')
+      .sort({ createdAt: -1 })
+      .lean();
     res.json({ success: true, enrollments });
   } catch (err) { next(err); }
 };
